@@ -47,7 +47,7 @@ int main() {
 
   // Aloca bitmap
   bitmap = new int[nb];
-
+  
   // Seta para zero
   for(int i = 0; i < nb; i++) {
     bitmap[i] = 0;
