@@ -142,7 +142,7 @@ int main() {
       if(entrada.compare(0,2,"cd" == 0)) {
         entrada.erase(0,3); // Consome comando
 
-        if(entrada.compare(0,2,'..') == 0) {
+        if(entrada.compare(0,2,"..") == 0) {
           if(pilha.back().getNome() == "/") {
             std::cout << "Usuário já se encontra no diretório raiz.\n";
           } else {
