@@ -11,7 +11,6 @@ private:
   char tipo;
   std::string nome;
   int tamanho;
-  std::time_t *data;
   int pbloco;
   std::string conteudo;
 public:
@@ -21,7 +20,6 @@ public:
     tipo = t;
     nome = n;
     tamanho = ta;
-    *data = std::time(nullptr);
     pbloco = pb;
   }
 
@@ -41,7 +39,7 @@ public:
     return pbloco;
   }
 
-  void lista(int tb) {
+  void listar(int tb) {
     if(DFT.empty()) {
       std::cout << "Diretório se encontra vazio.\n";
     } else {
@@ -49,7 +47,11 @@ public:
         if(it->tipo == 'D') {
           std::cout << "D " << it->nome << "\n";
         } else {
-          std::cout << "A " << it->nome << it->tamanho << ((it->tamanho)/tb) << "\n";
+          if((it->tamanho)%tb == 0) {
+            std::cout << "A " << it->nome << " " << it->tamanho << " " << ((it->tamanho)/tb) << "\n";
+          } else {
+            std::cout << "A " << it->nome << " " << it->tamanho << " " << (((it->tamanho)/tb)+1) << "\n";
+          }
         }
       }
     }
@@ -62,6 +64,10 @@ int main() {
   int tp, tb, nb; // tp = tamanho da partição; tb = tamanho do bloco; nb = número de blocos;
   int flagSA, *bitmap; // Flag sinalizante do tipo de sistema e mapa de bits
 
+  // Na utilização do sistema FAT
+  Metadado *aux; // Auxiliador para alocação dos objetos dessa classe
+  std::list<Metadado> pilha; // Pilha do sistema para manter a hierárquia dos diretórios
+
   // Ler arquivo de config.
   std::getline(std::cin,sa);
   std::cin >> tp;
@@ -69,6 +75,7 @@ int main() {
 
   nb = tp/tb; // Cálculo do número de blocos
 
+  int tabelaFAT[nb][2]; // [][0] = busy bit; [][1] = próximo bloco
   // Definir o tipo de sistema de arquivos.
   if(sa == "FAT") {
     flagSA=1;
@@ -86,17 +93,14 @@ int main() {
   }
 
   if(flagSA == 1) {
-    int tabelaFAT[nb][2]; // [][0] = busy bit; [][1] = próximo bloco
-
     // Seta para zero
     for(int i = 0; i < nb; i++) {
       tabelaFAT[i][0] = 0;
-      tabelaFAT[i][1] = 0;
+      tabelaFAT[i][1] = -1;
     }
 
     // Cria diretório '/'
-    Metadado *aux = new Metadado('D', "/");
-    std::list<Metadado> pilha;
+    aux = new Metadado('D', "/");
     pilha.push_back(*aux);
   }
 
@@ -122,7 +126,7 @@ int main() {
         // Verifica se já existe conteúdo no diretório e se os nomes são diferentes
         if(pilha.back().DFT.empty()) {
           pilha.back().DFT.push_back(*aux); // Adiciona ao diretório atual
-          std::cout << "Diretório criado com sucesso.\n"
+          std::cout << "Diretório criado com sucesso.\n";
         } else {
           for(it = pilha.back().DFT.begin(); it != pilha.back().DFT.end(); it++) {
             if(it->getNome() == aux->getNome()) {
@@ -131,7 +135,7 @@ int main() {
           }
           if(it == pilha.back().DFT.end()) {
             pilha.back().DFT.push_back(*aux); // Adiciona ao diretório atual
-            std::cout << "Diretório criado com sucesso.\n"
+            std::cout << "Diretório criado com sucesso.\n";
           }
           else {
             std::cout << "ERRO! Já exite Diretório/Arquivo com esse nome.\n";
@@ -139,7 +143,7 @@ int main() {
         }
       }
 
-      if(entrada.compare(0,2,"cd" == 0)) {
+      if(entrada.compare(0,2,"cd") == 0) {
         entrada.erase(0,3); // Consome comando
 
         if(entrada.compare(0,2,"..") == 0) {
@@ -184,15 +188,15 @@ int main() {
         } else {
           nome = entrada.substr(0,entrada.find("."));
         }
-        nome += entrada.substr(entrada.find("."), 3);
+        nome += entrada.substr(entrada.find("."), 4);
         entrada.erase(0,nome.size()+1);
 
         // Pega o tamanho
-        for(std::string::itereator it = entrada.begin(); it != entrada.end(); it++) {
-          if(isdigit(*it)) {
-            tam += *it;
+        for(std::string::iterator ite = entrada.begin(); ite != entrada.end(); ite++) {
+          if(isdigit(*ite)) {
+            tam += *ite;
           }
-          if(isalpha(*it)) {
+          if(isalpha(*ite)) {
             break;
           }
         }
@@ -202,7 +206,10 @@ int main() {
 
         // Verifica memória disponível
         numbc = t/tb; // numbc = número de blocos ocupados
-        for(i = 0; numbc>0; i++) {
+        if(t % tb != 0){
+          numbc++;
+        }
+        for(i = 0; i<nb && numbc!=0; i++) {
           if(bitmap[i] == 0) {
             numbc--;
           }
@@ -210,8 +217,11 @@ int main() {
         if(numbc == 0) {
           // Se tem espaço disponível, aloca
           numbc = t/tb;
+          if(t % tb != 0){
+            numbc++;
+          }
           primab = -1; // primeiro bloco do arquivo
-          for(i = 0; numbc>0; i++) {
+          for(i = 0; i<nb && numbc!=0; i++) {
             if(bitmap[i] == 0) {
               bitmap[i] = 1;
               tabelaFAT[i][0] = 1;
@@ -235,7 +245,7 @@ int main() {
           // Verifica se já existe conteúdo no diretório e se os nomes são diferentes
           if(pilha.back().DFT.empty()) {
             pilha.back().DFT.push_back(*aux); // Adiciona ao diretório atual
-            std::cout << "Arquivo criado com sucesso.\n"
+            std::cout << "Arquivo criado com sucesso.\n";
           } else {
             for(it = pilha.back().DFT.begin(); it != pilha.back().DFT.end(); it++) {
               if(it->getNome() == aux->getNome()) {
@@ -244,7 +254,7 @@ int main() {
             }
             if(it == pilha.back().DFT.end()) {
               pilha.back().DFT.push_back(*aux); // Adiciona ao diretório atual
-              std::cout << "Arquivo criado com sucesso.\n"
+              std::cout << "Arquivo criado com sucesso.\n";
             }
             else {
               std::cout << "ERRO! Já exite Diretório/Arquivo com esse nome.\n";
